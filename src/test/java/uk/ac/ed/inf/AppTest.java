@@ -1,0 +1,111 @@
+package uk.ac.ed.inf;
+
+import org.junit.After;
+import org.junit.Test;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.Random;
+import java.util.Set;
+
+import static org.junit.Assert.assertTrue;
+
+/**
+ * Unit test for simple App.
+ */
+public class AppTest {
+    //If you want to test for a specific date, set startDate to the date you want to test and endDate to startDate+ 1 day
+    LocalDate startDate = LocalDate.of(2023, 9, 1);
+    LocalDate endDate = LocalDate.of(2024, 1, 28);
+    Set<LocalDate> randomDates = new HashSet<>();
+    String projectDir = System.getProperty("user.dir") + "/resultfiles/";
+
+    // This test if files are generated in /resultfiles/ directory and deletes them after testing
+    @Test
+    public void testFileGeneration(){
+        //Adjust the number of random dates you want to test below
+        while (randomDates.size() < 1) {
+            LocalDate date = generateRandomDate(startDate, endDate);
+            randomDates.add(date);
+        }
+
+        for (LocalDate date : randomDates) {
+            String dateStr = date.toString();
+
+            App.main(new String[]{dateStr, "https://ilp-rest-2024.azurewebsites.net"});
+
+            String flightPathFileName = projectDir + "flightpath-" + dateStr + ".json";
+            String droneFileName = projectDir + "drone-" + dateStr + ".geojson";
+            String deliveriesFileName = projectDir + "deliveries-" + dateStr + ".json";
+
+            assertTrue("Flight path file for " + dateStr + " not created", Files.exists(Paths.get(flightPathFileName)));
+            assertTrue("Drone file for " + dateStr + " not created", Files.exists(Paths.get(droneFileName)));
+            assertTrue("Deliveries file for " + dateStr + " not created", Files.exists(Paths.get(deliveriesFileName)));
+        }
+    }
+
+    @After
+    public void cleanup() throws IOException {
+        for (LocalDate date : randomDates) {
+            String flightPathFileName = projectDir + "flightpath-" + date + ".json";
+            String droneFileName = projectDir + "drone-" + date + ".geojson";
+            String deliveriesFileName = projectDir + "deliveries-" + date + ".json";
+
+            Files.deleteIfExists(Paths.get(flightPathFileName));
+            Files.deleteIfExists(Paths.get(droneFileName));
+            Files.deleteIfExists(Paths.get(deliveriesFileName));
+
+            System.out.println("Files for " + date + " were successfully created and deleted after testing.");
+        }
+    }
+
+    private LocalDate generateRandomDate(LocalDate startDate, LocalDate endDate) {
+        Random random = new Random();
+        long startEpochDay = startDate.toEpochDay();
+        long endEpochDay = endDate.toEpochDay();
+        long randomEpochDay = startEpochDay + random.nextInt((int) (endEpochDay - startEpochDay));
+        return LocalDate.ofEpochDay(randomEpochDay);
+    }
+}
+
+
+//package uk.ac.ed.inf;
+//
+//import junit.framework.Test;
+//import junit.framework.TestCase;
+//import junit.framework.TestSuite;
+//
+///**
+// * Unit test for simple App.
+// */
+//public class AppTest
+//    extends TestCase
+//{
+//    /**
+//     * Create the test case
+//     *
+//     * @param testName name of the test case
+//     */
+//    public AppTest( String testName )
+//    {
+//        super( testName );
+//    }
+//
+//    /**
+//     * @return the suite of tests being tested
+//     */
+//    public static Test suite()
+//    {
+//        return new TestSuite( AppTest.class );
+//    }
+//
+//    /**
+//     * Rigourous Test :-)
+//     */
+//    public void testApp()
+//    {
+//        assertTrue( true );
+//    }
+//}

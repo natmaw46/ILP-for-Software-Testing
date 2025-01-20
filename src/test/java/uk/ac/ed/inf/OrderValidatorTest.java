@@ -1,170 +1,287 @@
 package uk.ac.ed.inf;
 
-import org.junit.Test;
-import uk.ac.ed.inf.ilp.data.CreditCardInformation;
+import junit.framework.TestCase;
 import uk.ac.ed.inf.ilp.constant.OrderStatus;
 import uk.ac.ed.inf.ilp.constant.OrderValidationCode;
-import uk.ac.ed.inf.ilp.data.LngLat;
+import uk.ac.ed.inf.ilp.constant.SystemConstants;
+import uk.ac.ed.inf.ilp.data.CreditCardInformation;
 import uk.ac.ed.inf.ilp.data.Order;
 import uk.ac.ed.inf.ilp.data.Pizza;
+import uk.ac.ed.inf.ilp.data.Restaurant;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.util.Random;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
-import uk.ac.ed.inf.ilp.data.Restaurant;
-
-import static org.junit.Assert.*;
-
-public class OrderValidatorTest
-{
-    @Test
-    public static void main( String[] args )
-    {
-        CreditCardInformation creditCardSample = new CreditCardInformation();
-
-        creditCardSample.setCvv("952");
-        creditCardSample.setCreditCardNumber("5555555555554444");
-        creditCardSample.setCreditCardExpiry("06/38");
+public class OrderValidatorTest extends TestCase {
+    final private OrderValidator validator = new OrderValidator();
 
 
-        LocalDate date = LocalDate.of(2023,9,1);
+    // ------------------------ [builders] ------------------------
 
-        Pizza[] pizzas = { new Pizza("Super Cheese", 1400), new Pizza("All Shrooms", 900)};
-
-        Restaurant[] restaurants = new Restaurant[4];
-        restaurants[0] = new Restaurant("Civerinos Slice"
-                ,new LngLat(-3.1912869215011597,55.945535152517735)
-                ,new DayOfWeek[]{DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY}
-                ,new Pizza[]{new Pizza("Margarita",1000), new Pizza("Calzone", 1400)});
-
-        restaurants[1] = new Restaurant("Sora Lella Vegan Restaurant"
-                ,new LngLat(-3.202541470527649,55.943284737579376)
-                ,new DayOfWeek[]{DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY}
-                ,new Pizza[]{new Pizza("Meat Lover",1400), new Pizza("Vegan Delight", 1100)});
-
-        restaurants[2] = new Restaurant("Domino's Pizza - Edinburgh - Southside"
-                ,new LngLat(-3.1838572025299072,55.94449876875712)
-                ,new DayOfWeek[]{DayOfWeek.SATURDAY, DayOfWeek.SUNDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY}
-                ,new Pizza[]{new Pizza("Super Cheese",1400), new Pizza("All Shrooms", 900)});
-
-        restaurants[3] = new Restaurant("Sodeberg Pavillion"
-                ,new LngLat(-3.1940174102783203,55.94390696616939)
-                ,new DayOfWeek[]{DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.SATURDAY, DayOfWeek.SUNDAY}
-                ,new Pizza[]{new Pizza("Proper Pizza",1400), new Pizza("Pineapple & Ham & Cheese", 900)});
-
-
-        Order sampleOrder = new Order();
-        sampleOrder.setOrderStatus(OrderStatus.UNDEFINED);
-        sampleOrder.setOrderValidationCode(OrderValidationCode.UNDEFINED);
-        sampleOrder.setOrderNo("19514FE0");
-        sampleOrder.setPriceTotalInPence(2400);
-        sampleOrder.setCreditCardInformation(creditCardSample);
-        sampleOrder.setOrderDate(date);
-        sampleOrder.setPizzasInOrder(pizzas);
-
-        OrderValidator validator = new OrderValidator();
-
-        validator.validateOrder(sampleOrder,restaurants);
-
-        System.out.println(sampleOrder.getOrderStatus());
-        System.out.println(sampleOrder.getOrderValidationCode());
+    private Order buildStage1Order() {
+        final Order order = new Order();
+        order.setOrderNo("foobar");
+        order.setOrderDate(LocalDate.parse("2023-12-01"));
+        order.setOrderStatus(OrderStatus.UNDEFINED);
+        order.setOrderValidationCode(OrderValidationCode.UNDEFINED);
+        return order;
     }
 
-    @Test
-    public void testOrders(){
-        GetDataFromRest.setBaseUrl("https://ilp-rest.azurewebsites.net");
+    private Order buildStage2Order() {
+        final Order order = buildStage1Order();
 
-        //If you want to test for a specific date, set startDate to the date you want to test and endDate to startDate+ 1 day
-        //Pick random dates in range of startDate and endDate
-        LocalDate startDate = LocalDate.of(2023, 9, 1);
-        LocalDate endDate = LocalDate.of(2024, 1, 28);
-        Set<LocalDate> randomDates = new HashSet<>();
+        final CreditCardInformation cardInformation = new CreditCardInformation();
+        cardInformation.setCvv("952");
+        cardInformation.setCreditCardNumber("5555555555554444");
+        cardInformation.setCreditCardExpiry("06/38");
 
-        //Adjust the number of dates you want to test
-        while (randomDates.size() < 1) {
-            LocalDate date = generateRandomDate(startDate, endDate);
-            randomDates.add(date);
+        order.setCreditCardInformation(cardInformation);
+        return order;
+    }
+
+    private Restaurant buildRestaurant(Pizza[] items) {
+        return new Restaurant(
+                "Restaurant",
+                null,
+                new DayOfWeek[]{DayOfWeek.FRIDAY},
+                items
+        );
+    }
+
+    // ------------------------ [context tests] ------------------------
+
+    public void testContext_OrderNumber() {
+        final Order order = new Order();
+        validator.validateOrder(order, new Restaurant[]{null});
+
+        assertEquals(OrderValidationCode.UNDEFINED, order.getOrderValidationCode());
+        assertEquals(OrderStatus.INVALID, order.getOrderStatus());
+    }
+
+    public void testContext_OrderStatus() {
+        final Order order = new Order();
+        order.setOrderNo("foobar");
+        order.setOrderDate(LocalDate.now());
+        order.setOrderStatus(OrderStatus.VALID_BUT_NOT_DELIVERED);
+
+        validator.validateOrder(order, new Restaurant[]{null});
+
+        assertEquals(OrderValidationCode.UNDEFINED, order.getOrderValidationCode());
+        assertEquals(OrderStatus.INVALID, order.getOrderStatus());
+    }
+
+    public void testContext_OrderValidation() {
+        final Order order = new Order();
+        order.setOrderNo("foobar");
+        order.setOrderDate(LocalDate.now());
+        order.setOrderStatus(OrderStatus.UNDEFINED);
+        order.setOrderValidationCode(OrderValidationCode.NO_ERROR);
+
+        validator.validateOrder(order, new Restaurant[]{null});
+
+        assertEquals(OrderValidationCode.UNDEFINED, order.getOrderValidationCode());
+        assertEquals(OrderStatus.INVALID, order.getOrderStatus());
+    }
+
+    // ------------------------ [credit card validation tests] ------------------------
+
+    public void testCard_CVV() {
+        final String[] cases = {"12", "1234", "a12", "a123", "@12"};
+        for (String cvv : cases) {
+            final CreditCardInformation cardInformation = new CreditCardInformation();
+            cardInformation.setCvv(cvv);
+
+            final Order order = buildStage1Order();
+            order.setCreditCardInformation(cardInformation);
+
+            validator.validateOrder(order, new Restaurant[]{null});
+
+            assertEquals(OrderValidationCode.CVV_INVALID, order.getOrderValidationCode());
+            assertEquals(OrderStatus.INVALID, order.getOrderStatus());
         }
+    }
 
-        for(LocalDate date : randomDates){
-            Restaurant[] restaurants = GetDataFromRest.getRestaurantsData();
-            Order[] ordersOnDay = GetDataFromRest.getOrdersOnDay(date);
+    public void testCard_Number() {
+        final CreditCardInformation cardInformation = new CreditCardInformation();
+        cardInformation.setCvv("123");
 
-            for(Order order: ordersOnDay){
-                new OrderValidator().validateOrder(order,restaurants);
+        final String[] cases = {
+                "123456789012345", "a1234567890123456", "@1234567890123456", "123456789012345678", "abcde"
+        };
+        for (String card : cases) {
+            cardInformation.setCreditCardNumber(card);
 
-                assertNotNull("Order status should not be null", order.getOrderStatus());
-                assertNotEquals("Order status should not be undefined", OrderStatus.UNDEFINED, order.getOrderStatus());
+            final Order order = buildStage1Order();
+            order.setCreditCardInformation(cardInformation);
 
-                assertNotNull("Order validation code should not be null", order.getOrderValidationCode());
-                assertNotEquals("Order validation code should not be undefined", OrderValidationCode.UNDEFINED, order.getOrderValidationCode());
+            validator.validateOrder(order, new Restaurant[]{null});
 
+            assertEquals(OrderValidationCode.CARD_NUMBER_INVALID, order.getOrderValidationCode());
+            assertEquals(OrderStatus.INVALID, order.getOrderStatus());
+        }
+    }
+
+    public void testCard_ExpiryDate() {
+        final CreditCardInformation cardInformation = new CreditCardInformation();
+        cardInformation.setCvv("123");
+        cardInformation.setCreditCardNumber("1234567890123456");
+
+        final String[] cases = {"12/22", "13/23", "a1/23", "-1/23", "1/23", "01/a", "0a/0b"};
+        for (String date : cases) {
+            cardInformation.setCreditCardExpiry(date);
+
+            final Order order = buildStage1Order();
+            order.setCreditCardInformation(cardInformation);
+
+            validator.validateOrder(order, new Restaurant[]{null});
+
+            assertEquals(OrderValidationCode.EXPIRY_DATE_INVALID, order.getOrderValidationCode());
+            assertEquals(OrderStatus.INVALID, order.getOrderStatus());
+        }
+    }
+
+    // ------------------------ [restaurant validation tests] ------------------------
+
+    public void testRestaurant_PizzaCount() {
+        final Map<OrderValidationCode, Pizza[]> cases = new HashMap<>();
+        cases.put(OrderValidationCode.PIZZA_NOT_DEFINED, new Pizza[]{});
+        cases.put(OrderValidationCode.MAX_PIZZA_COUNT_EXCEEDED, new Pizza[]{
+                new Pizza("", 1), new Pizza("", 1), new Pizza("", 1), new Pizza("", 1), new Pizza("", 1),
+        });
+
+        for (OrderValidationCode code : cases.keySet()) {
+            final Order order = buildStage2Order();
+            order.setPizzasInOrder(cases.get(code));
+
+            validator.validateOrder(order, new Restaurant[]{null});
+
+            assertEquals(code, order.getOrderValidationCode());
+            assertEquals(OrderStatus.INVALID, order.getOrderStatus());
+        }
+    }
+
+    public void testRestaurant_Menu() {
+        final Order order = buildStage2Order();
+        order.setPizzasInOrder(new Pizza[]{new Pizza("foobar", 1)});
+
+        final Restaurant restaurant = new Restaurant(
+                "Restaurant", null, null, new Pizza[]{new Pizza("barfoo", 1)}
+        );
+
+        validator.validateOrder(order, new Restaurant[]{restaurant});
+
+        assertEquals(OrderValidationCode.PIZZA_NOT_DEFINED, order.getOrderValidationCode());
+        assertEquals(OrderStatus.INVALID, order.getOrderStatus());
+    }
+
+    public void testRestaurant_OpenDays() {
+        final Pizza pizza = new Pizza("foobar", 1);
+        final Order order = buildStage2Order();
+        order.setPizzasInOrder(new Pizza[]{pizza});
+
+        final Restaurant restaurant = new Restaurant(
+                "Restaurant", null, new DayOfWeek[]{}, new Pizza[]{pizza}
+        );
+
+        validator.validateOrder(order, new Restaurant[]{restaurant});
+
+        assertEquals(OrderValidationCode.RESTAURANT_CLOSED, order.getOrderValidationCode());
+        assertEquals(OrderStatus.INVALID, order.getOrderStatus());
+    }
+
+    public void testRestaurant_SingleRestaurant() {
+        Pizza pizza = new Pizza("foobar", 1);
+        final Restaurant restaurant1 = buildRestaurant(new Pizza[]{pizza});
+
+        pizza = new Pizza("", 1);
+        final Restaurant restaurant2 = buildRestaurant(new Pizza[]{pizza});
+
+        final Order order = buildStage2Order();
+        order.setPizzasInOrder(new Pizza[]{
+                pizza, new Pizza("foobar", 1), new Pizza("", 1),
+        });
+
+        validator.validateOrder(order, new Restaurant[]{restaurant1, restaurant2});
+
+        assertEquals(OrderValidationCode.PIZZA_FROM_MULTIPLE_RESTAURANTS, order.getOrderValidationCode());
+        assertEquals(OrderStatus.INVALID, order.getOrderStatus());
+    }
+
+    // ------------------------ [order total validation tests] ------------------------
+
+    public void testTotal() {
+        final Pizza pizza1 = new Pizza("foobar", 1);
+        final Pizza pizza2 = new Pizza("barfoo", 1);
+        final Restaurant restaurant = buildRestaurant(new Pizza[]{pizza1, pizza2});
+
+        final Order order = buildStage2Order();
+        order.setPizzasInOrder(new Pizza[]{pizza1, pizza2});
+        order.setPriceTotalInPence(SystemConstants.ORDER_CHARGE_IN_PENCE);
+
+        validator.validateOrder(order, new Restaurant[]{restaurant});
+
+        assertEquals(OrderValidationCode.TOTAL_INCORRECT, order.getOrderValidationCode());
+        assertEquals(OrderStatus.INVALID, order.getOrderStatus());
+    }
+
+    public void testTotal_IncludeDeliveryCharge() {
+        final Pizza pizza1 = new Pizza("foobar", 1);
+        final Pizza pizza2 = new Pizza("barfoo", 1);
+        final Restaurant restaurant = buildRestaurant(new Pizza[]{pizza1, pizza2});
+
+        final Order order = buildStage2Order();
+        order.setPizzasInOrder(new Pizza[]{pizza1, pizza2});
+        order.setPriceTotalInPence(
+                Arrays.stream(order.getPizzasInOrder()).map(Pizza::priceInPence).reduce(0, Integer::sum)
+        );
+
+        validator.validateOrder(order, new Restaurant[]{restaurant});
+
+        assertEquals(OrderValidationCode.TOTAL_INCORRECT, order.getOrderValidationCode());
+        assertEquals(OrderStatus.INVALID, order.getOrderStatus());
+    }
+
+    public void testDeliverableOrder() {
+        final Pizza pizza1 = new Pizza("foobar", 250);
+        final Pizza pizza2 = new Pizza("barfoo", 500);
+        final Restaurant restaurant = buildRestaurant(new Pizza[]{pizza1, pizza2});
+
+        final Order order = buildStage2Order();
+        order.setPizzasInOrder(new Pizza[]{pizza1, pizza2});
+        order.setPriceTotalInPence(
+                Arrays.stream(order.getPizzasInOrder())
+                        .map(Pizza::priceInPence)
+                        .reduce(SystemConstants.ORDER_CHARGE_IN_PENCE, Integer::sum)
+        );
+
+        validator.validateOrder(order, new Restaurant[]{restaurant});
+
+        assertEquals(OrderValidationCode.NO_ERROR, order.getOrderValidationCode());
+        assertEquals(OrderStatus.VALID_BUT_NOT_DELIVERED, order.getOrderStatus());
+    }
+
+    public void testIllegalArgumentException_Order() {
+        try {
+            validator.validateOrder(null, null);
+            fail("expected 'IllegalArgumentException' to be thrown");
+        } catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage().contains("order"));
+        }
+    }
+
+    public void testIllegalArgumentException_Restaurants() {
+        final Restaurant[][] cases = {null, new Restaurant[]{}};
+        for (Restaurant[] restaurants : cases) {
+            try {
+                validator.validateOrder(buildStage2Order(), restaurants);
+                fail("expected 'IllegalArgumentException' to be thrown");
+            } catch (IllegalArgumentException e) {
+                assertTrue(e.getMessage().contains("restaurants"));
             }
-            testAllValidationCodesPresent(ordersOnDay, date);
         }
-    }
-
-    private void testAllValidationCodesPresent(Order[] ordersOnDay, LocalDate date) {
-        boolean isNoError = false;
-        boolean isCardNumberInvalid = false;
-        boolean isExpiryDateInvalid = false;
-        boolean isCvvInvalid = false;
-        boolean isTotalIncorrect = false;
-        boolean isPizzaNotDefined = false;
-        boolean isMaxPizzaCountExceeded = false;
-        boolean isPizzaFromMultipleRestaurants = false;
-        boolean isRestaurantClosed = false;
-
-        for (Order order : ordersOnDay) {
-            switch (order.getOrderValidationCode()) {
-                case NO_ERROR:
-                    isNoError = true;
-                    break;
-                case CARD_NUMBER_INVALID:
-                    isCardNumberInvalid = true;
-                    break;
-                case EXPIRY_DATE_INVALID:
-                    isExpiryDateInvalid = true;
-                    break;
-                case CVV_INVALID:
-                    isCvvInvalid = true;
-                    break;
-                case TOTAL_INCORRECT:
-                    isTotalIncorrect = true;
-                    break;
-                case PIZZA_NOT_DEFINED:
-                    isPizzaNotDefined = true;
-                    break;
-                case MAX_PIZZA_COUNT_EXCEEDED:
-                    isMaxPizzaCountExceeded = true;
-                    break;
-                case PIZZA_FROM_MULTIPLE_RESTAURANTS:
-                    isPizzaFromMultipleRestaurants = true;
-                    break;
-                case RESTAURANT_CLOSED:
-                    isRestaurantClosed = true;
-                    break;
-            }
-        }
-
-        assertTrue("OrderValidationCode NO_ERROR should be present for date " + date, isNoError);
-        assertTrue("OrderValidationCode CARD_NUMBER_INVALID should be present for date " + date, isCardNumberInvalid);
-        assertTrue("OrderValidationCode EXPIRY_DATE_INVALID should be present for date " + date, isExpiryDateInvalid);
-        assertTrue("OrderValidationCode CVV_INVALID should be present for date " + date, isCvvInvalid);
-        assertTrue("OrderValidationCode TOTAL_INCORRECT should be present for date " + date, isTotalIncorrect);
-        assertTrue("OrderValidationCode PIZZA_NOT_DEFINED should be present for date " + date, isPizzaNotDefined);
-        assertTrue("OrderValidationCode MAX_PIZZA_COUNT_EXCEEDED should be present for date " + date, isMaxPizzaCountExceeded);
-        assertTrue("OrderValidationCode PIZZA_FROM_MULTIPLE_RESTAURANTS should be present for date " + date, isPizzaFromMultipleRestaurants);
-        assertTrue("OrderValidationCode RESTAURANT_CLOSED should be present for date " + date, isRestaurantClosed);
-    }
-
-    private LocalDate generateRandomDate(LocalDate startDate, LocalDate endDate) {
-        Random random = new Random();
-        long startEpochDay = startDate.toEpochDay();
-        long endEpochDay = endDate.toEpochDay();
-        long randomEpochDay = startEpochDay + random.nextInt((int) (endEpochDay - startEpochDay));
-        return LocalDate.ofEpochDay(randomEpochDay);
     }
 }
 

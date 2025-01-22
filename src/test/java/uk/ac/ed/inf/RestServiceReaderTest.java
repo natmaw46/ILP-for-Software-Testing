@@ -7,6 +7,7 @@ import junit.framework.TestCase;
 import uk.ac.ed.inf.RestServiceReader;
 import uk.ac.ed.inf.ilp.data.*;
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -15,7 +16,7 @@ public class RestServiceReaderTest extends TestCase {
 
     // 1. Test valid URL (already implemented)
     public void testValidServerConnection() {
-        String urlString = "https://ilp-rest.azurewebsites.net/";
+        String urlString = "https://ilp-rest-2024.azurewebsites.net/";
         try {
             HttpURLConnection connection = (HttpURLConnection) new URL(urlString).openConnection();
             connection.setRequestMethod("GET");
@@ -36,16 +37,24 @@ public class RestServiceReaderTest extends TestCase {
     }
 
     // 3. Test malformed URL
-    public void testMalformedUrl() throws Exception {
+    public void testMalformedUrl() {
         String urlString = "htp://malformed-url.com/";
-        HttpURLConnection connection = (HttpURLConnection) new URL(urlString).openConnection();
-        connection.setRequestMethod("GET");
-        connection.connect();
+        try {
+            HttpURLConnection connection = (HttpURLConnection) new URL(urlString).openConnection();
+            connection.setRequestMethod("GET");
+            connection.connect();
+            fail("Expected MalformedURLException to be thrown");
+        } catch (MalformedURLException e) {
+            // Test passes since the exception is expected
+            assertEquals("unknown protocol: htp", e.getMessage());
+        } catch (Exception e) {
+            fail("Unexpected exception: " + e.getClass().getName());
+        }
     }
 
     // 4. Test URL that returns 404 error (non-existent endpoint)
     public void testInvalidEndpoint() {
-        String urlString = "https://ilp-rest.azurewebsites.net/invalidendpoint";
+        String urlString = "https://ilp-rest-2024.azurewebsites.net/invalidendpoint";
         try {
             HttpURLConnection connection = (HttpURLConnection) new URL(urlString).openConnection();
             connection.setRequestMethod("GET");
@@ -59,7 +68,7 @@ public class RestServiceReaderTest extends TestCase {
 
     // 5. Test timeout (simulate slow connection)
     public void testTimeoutServerConnection() {
-        String urlString = "https://ilp-rest.azurewebsites.net/";
+        String urlString = "https://ilp-rest-2024.azurewebsites.net/";
         try {
             HttpURLConnection connection = (HttpURLConnection) new URL(urlString).openConnection();
             connection.setRequestMethod("GET");
@@ -75,7 +84,7 @@ public class RestServiceReaderTest extends TestCase {
 
     // 6. Test getting restaurant data and print it out
     public void testValidRestaurantData() {
-        String urlString = "https://ilp-rest.azurewebsites.net/";
+        String urlString = "https://ilp-rest-2024.azurewebsites.net/";
         Restaurant[] rest = RestServiceReader.getRestaurant(urlString);
         assertNotNull("Restaurants should not be null", rest);
         assertTrue("Restaurants should contain at least one restaurant", rest.length > 0);
@@ -98,7 +107,7 @@ public class RestServiceReaderTest extends TestCase {
 
     // 7. Test getting orders
     public void testValidOrderData() {
-        String urlString = "https://ilp-rest.azurewebsites.net/";
+        String urlString = "https://ilp-rest-2024.azurewebsites.net/";
         LocalDate date = LocalDate.of(2023, 11, 15);
         Order[] ord = RestServiceReader.getOrder(urlString, date);
         assertNotNull("Orders should not be null", ord);
@@ -120,7 +129,7 @@ public class RestServiceReaderTest extends TestCase {
 
     // 8. Test getting central area data
     public void testValidCentralAreaData() {
-        String urlString = "https://ilp-rest.azurewebsites.net/";
+        String urlString = "https://ilp-rest-2024.azurewebsites.net/";
         NamedRegion centralArea = RestServiceReader.getCentralArea(urlString);
         assertNotNull("Central area should not be null", centralArea);
 
@@ -134,7 +143,7 @@ public class RestServiceReaderTest extends TestCase {
 
     // 9. Test getting no-fly zones data
     public void testValidNoFlyZonesData() {
-        String urlString = "https://ilp-rest.azurewebsites.net/";
+        String urlString = "https://ilp-rest-2024.azurewebsites.net/";
         NamedRegion[] noFlyZones = RestServiceReader.getNoFlyZones(urlString);
         assertNotNull("No-fly zones should not be null", noFlyZones);
         assertTrue("No-fly zones should contain at least one region", noFlyZones.length > 0);
